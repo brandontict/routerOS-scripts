@@ -1,6 +1,6 @@
 routerOS scripts 
 
-Have this script review your router and give an indepth over view of logs , dropped packets , updates , etc ... 
+Have this script review your router and give an over view of logs , dropped packets , updates , etc ... 
 
 <img width="1020" height="1000" alt="image" src="https://github.com/user-attachments/assets/e45826ef-3996-4bd8-9759-1c75063c4afd" />
 
