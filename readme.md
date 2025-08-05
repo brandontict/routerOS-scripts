@@ -1,4 +1,12 @@
-routerOS scripts 
+routerOS scripts - 
+I had created these scripts with Claude, chasing down an actor going after my telnet port . So basically this will give you a fast overview to makesure nothing is " out of place" .
+
+This is version 1. I would love ideas ! 
+
+* Next Update *
+
+1)Notfications via Google , Discord , Telegram notifcations . 
+
 
 Have this script review your router and give an over view of logs , dropped packets , updates , etc ... 
 
