@@ -1,188 +1,156 @@
-# RouterOS System Status & Security Check Script - FIXED VERSION
-# Copy/paste this entire script into RouterOS terminal or save as a script
-# Usage: Just run it to get a comprehensive system overview
-
-# ===============================================================================
-# SYSTEM OVERVIEW
-# ===============================================================================
+# Universal RouterOS Security Analysis Script
+# Simplified version that works on ANY RouterOS setup
+# No complex logic - just basic commands that always work
 
 :put "==================================================================================="
-:put "                    ROUTEROS SYSTEM STATUS & SECURITY REPORT"
+:put "                    UNIVERSAL ROUTEROS SECURITY ANALYSIS"
 :put "==================================================================================="
 :put ""
 
-# Get current date/time for report header
 :put ("Report Generated: " . [/system clock get date] . " " . [/system clock get time])
+:put ("RouterOS Version: " . [/system resource get version])
 :put ""
 
 # ===============================================================================
 # SYSTEM INFORMATION
 # ===============================================================================
 :put "=== SYSTEM INFORMATION ==="
-:put ("RouterOS Version: " . [/system resource get version])
-:put ("Board Name: " . [/system resource get board-name])
-:put ("Architecture: " . [/system resource get architecture-name])
+:put ("Board: " . [/system resource get board-name])
+:put ("CPU Load: " . [/system resource get cpu-load] . "%")
 :put ("Uptime: " . [/system resource get uptime])
 :put ""
 
 # ===============================================================================
-# RESOURCE USAGE
+# FIREWALL RULES COUNT
 # ===============================================================================
-:put "=== RESOURCE USAGE ==="
-:local cpuLoad [/system resource get cpu-load]
-:local freeMemory [/system resource get free-memory]
-:local totalMemory [/system resource get total-memory]
-:local usedMemory ($totalMemory - $freeMemory)
-:local memoryPercent (($usedMemory * 100) / $totalMemory)
-
-:put ("CPU Load: " . $cpuLoad . "%")
-:put ("Memory Used: " . $usedMemory . " / " . $totalMemory . " (" . $memoryPercent . "%)")
-:put ("Free HDD Space: " . [/system resource get free-hdd-space])
+:put "=== FIREWALL CONFIGURATION ==="
+:local filterCount [/ip firewall filter print count-only]
+:local natCount [/ip firewall nat print count-only]
+:put ("Filter Rules: " . $filterCount)
+:put ("NAT Rules: " . $natCount)
 :put ""
 
 # ===============================================================================
-# SOFTWARE UPDATE CHECK
+# LOG ANALYSIS - SIMPLE APPROACH
 # ===============================================================================
-:put "=== SOFTWARE UPDATE STATUS ==="
-/system package update check-for-updates
-:delay 3
-:local channel [/system package update get channel]
-:local installedVersion [/system package update get installed-version]
-:local latestVersion [/system package update get latest-version]
+:put "=== LOG ANALYSIS ==="
 
-:put ("Update Channel: " . $channel)
-:put ("Installed Version: " . $installedVersion)
-:put ("Latest Version: " . $latestVersion)
+:local dropCount [/log print count-only where message~"DROP"]
+:local denyCount [/log print count-only where message~"drop"]
+:local totalBlocked ($dropCount + $denyCount)
 
-:if ($installedVersion != $latestVersion) do={
-    :put "*** UPDATE AVAILABLE! ***"
-} else={
-    :put "System is up to date"
-}
-:put ""
+:put ("Uppercase DROP messages: " . $dropCount)
+:put ("Lowercase drop messages: " . $denyCount) 
+:put ("Total blocked attempts: " . $totalBlocked)
 
-# ===============================================================================
-# INTERFACE STATUS
-# ===============================================================================
-:put "=== INTERFACE STATUS ==="
-:foreach i in=[/interface find] do={
-    :local ifName [/interface get $i name]
-    :local ifStatus [/interface get $i running]
-    :local ifType [/interface get $i type]
-
-    :if ($ifStatus = "true") do={
-        :put ($ifName . " (" . $ifType . "): UP")
-    } else={
-        :put ($ifName . " (" . $ifType . "): DOWN")
-    }
-}
-:put ""
-
-# ===============================================================================
-# RECENT FIREWALL DROPS (Security Incidents)
-# ===============================================================================
-:put "=== RECENT FIREWALL DROPS (Last 20 entries) ==="
-:put "Recent attempts blocked by firewall:"
-/log print where message~"DROP"
-:put ""
-
-# ===============================================================================
-# ACTIVE CONNECTIONS
-# ===============================================================================
-:put "=== ACTIVE CONNECTION SUMMARY ==="
-:local totalConnections [/ip firewall connection print count-only]
-:local tcpConnections [/ip firewall connection print count-only where protocol="tcp"]
-:local udpConnections [/ip firewall connection print count-only where protocol="udp"]
-
-:put ("Total Active Connections: " . $totalConnections)
-:put ("TCP Connections: " . $tcpConnections)
-:put ("UDP Connections: " . $udpConnections)
-:put ""
-
-# ===============================================================================
-# DHCP LEASE STATUS
-# ===============================================================================
-:put "=== ACTIVE DHCP LEASES ==="
-:local activeLeases [/ip dhcp-server lease print count-only where status="bound"]
-:put ("Active DHCP Leases: " . $activeLeases)
-:put ""
-:put "Recently active devices:"
-/ip dhcp-server lease print where status="bound"
-:put ""
-
-# ===============================================================================
-# WIRELESS STATUS (if applicable)
-# ===============================================================================
-:if ([/interface wireless print count-only] > 0) do={
-    :put "=== WIRELESS INTERFACE STATUS ==="
-    :foreach w in=[/interface wireless find] do={
-        :local wName [/interface wireless get $w name]
-        :local wStatus [/interface wireless get $w running]
-
-        :if ($wStatus = "true") do={
-            :put ($wName . ": UP")
-            :local clientCount [/interface wireless registration-table print count-only where interface=$wName]
-            :put ("  Connected Clients: " . $clientCount)
-        } else={
-            :put ($wName . ": DOWN")
-        }
-    }
+:if ($totalBlocked > 0) do={
     :put ""
+    :put "=== RECENT BLOCKED ATTEMPTS ==="
+    :put "Showing recent DROP messages:"
+    /log print where message~"DROP" last 10
+    :put ""
+    :put "Showing recent drop messages:"
+    /log print where message~"drop" last 10
+} else={
+    :put "No blocked packets found in current logs"
 }
-
-# ===============================================================================
-# NAT RULES STATUS
-# ===============================================================================
-:put "=== NAT RULES STATUS ==="
-:local enabledNatRules [/ip firewall nat print count-only where disabled="false"]
-:local disabledNatRules [/ip firewall nat print count-only where disabled="true"]
-:put ("Enabled NAT Rules: " . $enabledNatRules)
-:put ("Disabled NAT Rules: " . $disabledNatRules)
 :put ""
 
 # ===============================================================================
-# SECURITY RECOMMENDATIONS
+# CURRENT FIREWALL RULES
+# ===============================================================================
+:put "=== CURRENT FIREWALL FILTER RULES ==="
+/ip firewall filter print
+:put ""
+
+# ===============================================================================
+# ACTIVE NAT RULES
+# ===============================================================================
+:put "=== ACTIVE NAT RULES ==="
+/ip firewall nat print where disabled=no
+:put ""
+
+# ===============================================================================
+# ENABLED SERVICES
+# ===============================================================================
+:put "=== ENABLED SERVICES ==="
+/ip service print where disabled=no
+:put ""
+
+# ===============================================================================
+# BASIC SECURITY CHECKS
+# ===============================================================================
+:put "=== BASIC SECURITY ANALYSIS ==="
+
+# Count enabled services
+:local enabledServices [/ip service print count-only where disabled=no]
+:put ("Total Enabled Services: " . $enabledServices)
+
+# Check for risky services
+:local telnetFound [/ip service find where name="telnet" and disabled=no]
+:local ftpFound [/ip service find where name="ftp" and disabled=no]
+:local sshFound [/ip service find where name="ssh" and disabled=no]
+
+:if ([:len $telnetFound] > 0) do={
+    :put "WARNING: Telnet is enabled (insecure!)"
+}
+
+:if ([:len $ftpFound] > 0) do={
+    :put "WARNING: FTP is enabled (insecure!)"
+}
+
+:if ([:len $sshFound] > 0) do={
+    :put "INFO: SSH is enabled"
+}
+
+# Check firewall protection
+:local inputDropRules [/ip firewall filter find where chain="input" and action="drop"]
+:local forwardDropRules [/ip firewall filter find where chain="forward" and action="drop"]
+
+:put ("Input DROP rules: " . [:len $inputDropRules])
+:put ("Forward DROP rules: " . [:len $forwardDropRules])
+
+:if ([:len $inputDropRules] = 0) do={
+    :put "WARNING: No input DROP rules found - router may be exposed!"
+}
+
+:if ([:len $forwardDropRules] = 0) do={
+    :put "WARNING: No forward DROP rules found - network may be exposed!"
+}
+
+:put ""
+
+# ===============================================================================
+# RECOMMENDATIONS
 # ===============================================================================
 :put "=== SECURITY RECOMMENDATIONS ==="
 
-# Check if SSH is enabled
-:local sshEnabled [/ip service get ssh disabled]
-:if ($sshEnabled = "false") do={
-    :put "WARNING: SSH service is enabled - consider disabling if not needed"
+:if ($totalBlocked > 20) do={
+    :put "High attack volume detected - monitor logs regularly"
 } else={
-    :put "GOOD: SSH service is disabled"
-}
-
-# Check if telnet is enabled
-:local telnetEnabled [/ip service get telnet disabled]
-:if ($telnetEnabled = "false") do={
-    :put "WARNING: Telnet service is enabled - consider disabling (insecure)"
-} else={
-    :put "GOOD: Telnet service is disabled"
-}
-
-# Check web interface restriction
-:local webAddress [/ip service get www address]
-:if ([:len $webAddress] = 0) do={
-    :put "WARNING: Web interface accessible from anywhere - consider restricting to LAN"
-} else={
-    :put ("GOOD: Web interface restricted to: " . $webAddress)
+    :put "Attack volume appears normal"
 }
 
 :put ""
+:put "Basic security checklist:"
+:put "1. Disable telnet service: /ip service disable telnet"
+:put "2. Restrict web access to LAN only"
+:put "3. Enable firewall logging on drop rules"
+:put "4. Keep RouterOS updated"
+:put "5. Use strong passwords"
+:put ""
 
 # ===============================================================================
-# QUICK COMMANDS REFERENCE
+# USEFUL COMMANDS
 # ===============================================================================
-:put "=== QUICK REFERENCE COMMANDS ==="
-:put "View recent firewall drops: /log print where message~\"DROP\""
-:put "Check system resources: /system resource print"
-:put "View active connections: /ip firewall connection print"
-:put "Check for updates: /system package update check-for-updates"
-:put "View interface stats: /interface print stats"
-:put "Monitor logs live: /log print follow"
+:put "=== USEFUL COMMANDS ==="
+:put "/log print where message~\"DROP\" - View blocked attempts"
+:put "/ip firewall filter print - View firewall rules"
+:put "/ip service print - View all services"
+:put "/system package update check-for-updates - Check for updates"
+:put "/export file=backup - Export configuration"
 :put ""
 
 :put "==================================================================================="
-:put "                              REPORT COMPLETE"
+:put "                         ANALYSIS COMPLETE - WORKS EVERYWHERE!"
 :put "==================================================================================="
